@@ -1,0 +1,40 @@
+# Configuração Padrão (Usada no IntelliJ)
+spring:
+  profiles:
+    active: dev
+
+---
+# Perfil DEV: Roda no IntelliJ usando H2 em memória
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: jdbc:h2:mem:mechshopdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+---
+# Perfil PROD: Roda no Docker usando o banco Postgres
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: jdbc:postgresql://mech-shop-db:5432/mechshop
+    driverClassName: org.postgresql.Driver
+    username: postgres
+    password: secretpassword
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update

@@ -1,0 +1,35 @@
+services:
+  mech-shop-db:
+    image: postgres:16-alpine
+    container_name: mech-shop-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: mechshop
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secretpassword
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mechshop"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mech-shop-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mech-shop-app
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+    depends_on:
+      mech-shop-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
