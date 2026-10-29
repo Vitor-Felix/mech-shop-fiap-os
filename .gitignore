@@ -143,3 +143,6 @@ build/reports/
 *.sublime-*
 *.swp
 *.swo
+
+# Local agent context
+.ai/

@@ -1,5 +1,6 @@
 package com.vitfelix.mech_shop.infrastructure.exception
 
+import jakarta.validation.ConstraintViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -22,5 +23,19 @@ class GlobalExceptionHandler {
         )
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response)
+    }
+
+    @ExceptionHandler(ConstraintViolationException::class)
+    fun handleConstraintViolations(ex: ConstraintViolationException): ResponseEntity<Map<String, Any>> {
+        val errors = ex.constraintViolations.associate { violation ->
+            violation.propertyPath.toString() to violation.message
+        }
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+            mapOf(
+                "error" to "Falha de validação",
+                "details" to errors
+            )
+        )
     }
 }
