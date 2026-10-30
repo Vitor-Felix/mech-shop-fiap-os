@@ -25,7 +25,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Run tests and coverage verification
-        run: ./gradlew --no-daemon clean check
+        run: ./gradlew --no-daemon clean check bootJar
+
+      - name: Build container image
+        run: docker build --tag vehicle-sales-api:${{ github.sha }} .
 
       - name: Upload JaCoCo report
         if: always()
