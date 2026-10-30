@@ -1,67 +1,105 @@
 # Vehicle Sales API
 
-`vehicle-sales-api` is the isolated vehicle-sales service. It maintains its own vehicle projection, handles availability and purchases, and receives authenticated payment webhooks. Vehicle catalog data arrives over HTTP from `vehicle-catalog-api`; this service never connects to that project's database.
+API do serviço isolado de vendas de veículos. Mantém uma projeção própria dos veículos, controla disponibilidade e compras e recebe webhooks de pagamento. Os dados cadastrais chegam por HTTP do `vehicle-catalog-api`; este serviço não acessa o banco do projeto principal.
 
-The legacy workshop endpoints remain separate. The sales API and its PostgreSQL database run in their own Compose network or Kubernetes namespace, with no shared database, credentials, volume, Deployment, or Service.
+O fluxo legado de oficina permanece separado do domínio de vendas. A API e o PostgreSQL deste serviço usam recursos próprios no Docker Compose ou Kubernetes: não compartilham banco, credenciais, volume, Deployment nem Service com o `vehicle-catalog-api`.
 
-## Stack
+## Tecnologias
 
-- Kotlin 2.2.21, Java 21, Spring Boot 4, Gradle Wrapper 9.4.1
-- Spring MVC, Spring Data JPA, Spring Security, Bean Validation and Actuator
-- H2 for local development; PostgreSQL 16 for Compose/Kubernetes
-- JaCoCo line coverage gate: at least 80%
+- Kotlin 2.2.21, Java 21, Spring Boot 4 e Gradle Wrapper 9.4.1.
+- Spring MVC, Spring Data JPA, Spring Security, Bean Validation e Actuator.
+- H2 para desenvolvimento local; PostgreSQL 16 no Compose e nos manifests Kubernetes.
+- JaCoCo com cobertura mínima obrigatória de 80% das linhas.
 
-## Local development
+## Como executar localmente
 
-Run the API with the in-memory H2 database:
+### Requisitos
+
+- JDK 21.
+- Git para obter o repositório.
+- Docker e Docker Compose somente para executar com PostgreSQL.
+
+Confira a versão Java antes de iniciar:
+
+```bash
+java -version
+```
+
+### API com H2 em memória
+
+Na raiz do repositório, inicie a aplicação:
 
 ```bash
 ./gradlew bootRun
 ```
 
-The `dev` profile is active by default. To use the legacy admin login locally, set `LOGIN_USERNAME`, `LOGIN_PASSWORD` and a `JWT_SECRET` of at least 32 bytes in the shell. Internal vehicle synchronization and payment webhooks also require `MECH_SHOP_INTERNAL_TOKEN` and `PAYMENT_WEBHOOK_SECRET`; without them, those routes reject requests.
+O perfil `dev`, com H2 em memória, é o padrão. O banco é recriado quando a aplicação reinicia. Para usar o endpoint legado de login (`POST /api/auth/login`), configure as credenciais e uma chave JWT com pelo menos 32 bytes no ambiente antes de executar a aplicação. Exemplo para Linux/macOS:
 
-For PostgreSQL and Docker Compose, copy `.env.example` to `.env`, replace every placeholder with unique local values, and run:
+```bash
+export LOGIN_USERNAME='admin-local'
+export LOGIN_PASSWORD='troque-esta-senha-local'
+export JWT_SECRET='chave-local-com-pelo-menos-32-bytes'
+./gradlew bootRun
+```
+
+O receptor de sincronização e o webhook de pagamento exigem `MECH_SHOP_INTERNAL_TOKEN` e `PAYMENT_WEBHOOK_SECRET`, respectivamente. Se esses valores não estiverem configurados, as rotas rejeitam as chamadas. Exporte também esses valores ao testar tais fluxos localmente; não use os exemplos acima como credenciais de produção.
+
+### API com PostgreSQL via Docker Compose
+
+O Compose exige credenciais e segredos explícitos. Crie o arquivo local ignorado pelo Git a partir do exemplo:
+
+```bash
+cp .env.example .env
+```
+
+Edite `.env` e substitua **todos** os valores de exemplo por valores locais próprios, incluindo credenciais PostgreSQL, token interno, segredo do webhook, login e `JWT_SECRET` (mínimo de 32 bytes). Em seguida, construa e inicie os serviços:
 
 ```bash
 docker compose up --build -d
 ```
 
-Compose requires all values in `.env`, including PostgreSQL credentials and the internal, webhook and legacy-login secrets. The database is reachable only by the API on the private Compose network; only the API port is published to the host. The named `pgdata` volume remains persistent. For an existing database volume, retain the database name, user and password used when that volume was initialized: changing `POSTGRES_*` environment values does not rotate credentials or migrate data. Never run `docker compose down -v` to troubleshoot or upgrade this service.
+Confira o estado:
 
-The application still uses Hibernate `ddl-auto: update` in the production profile and has no versioned database migrations. Do not treat this as a safe migration strategy for a populated database; back up and plan schema changes separately.
+```bash
+docker compose ps
+docker compose logs -f vehicle-sales-api
+```
 
-Swagger UI is available at <http://localhost:8080/swagger-ui/index.html> and health checks at `/actuator/health`.
+Somente a porta da API é publicada no host (8080 por padrão, configurável com `API_HOST_PORT`). O PostgreSQL fica acessível apenas na rede interna do Compose. Os dados persistem no volume nomeado `pgdata`. Não execute `docker compose down -v`: isso remove volumes e pode apagar dados.
 
-## Configuration
+Se já houver um volume PostgreSQL desta aplicação, mantenha o nome do banco e o usuário/senha usados na inicialização desse volume. Alterar `POSTGRES_*` no `.env` não altera automaticamente as credenciais dentro de um banco existente nem migra seus dados. O perfil `prod` ainda usa Hibernate `ddl-auto: update` e o projeto não possui migrations versionadas; isso não deve ser considerado uma migração segura para banco populado.
 
-| Variable | Purpose |
+A documentação Swagger fica em <http://localhost:8080/swagger-ui/index.html>. Os health checks do Actuator estão em `/actuator/health`, `/actuator/health/liveness` e `/actuator/health/readiness`.
+
+## Configuração
+
+| Variável | Finalidade |
 |---|---|
-| `SPRING_PROFILES_ACTIVE` | Use `prod` for PostgreSQL; defaults to `dev` in `application.yaml`. |
-| `SPRING_DATASOURCE_URL` | PostgreSQL JDBC URL in the `prod` profile. |
-| `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD` | PostgreSQL credentials. |
-| `MECH_SHOP_INTERNAL_TOKEN` | Bearer token accepted by vehicle synchronization. |
-| `PAYMENT_WEBHOOK_SECRET` | Secret accepted in `X-Webhook-Secret`. |
-| `LOGIN_USERNAME` / `LOGIN_PASSWORD` | Credentials for the legacy `/api/auth/login` endpoint. |
-| `JWT_SECRET` | HMAC signing secret; must contain at least 32 UTF-8 bytes. |
-| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | PostgreSQL initialization values for Compose/Kubernetes. |
-| `API_HOST_PORT` | Optional host port for Compose; defaults to `8080`. |
+| `SPRING_PROFILES_ACTIVE` | Perfil Spring; use `prod` com PostgreSQL. O padrão é `dev`. |
+| `SPRING_DATASOURCE_URL` | URL JDBC do PostgreSQL no perfil `prod`. |
+| `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD` | Usuário e senha da conexão PostgreSQL. |
+| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | Inicialização do banco PostgreSQL no Compose/Kubernetes. |
+| `MECH_SHOP_INTERNAL_TOKEN` | Token Bearer que autentica a sincronização de veículos. |
+| `PAYMENT_WEBHOOK_SECRET` | Segredo validado no header `X-Webhook-Secret`. |
+| `LOGIN_USERNAME` / `LOGIN_PASSWORD` | Credenciais do endpoint legado `/api/auth/login`. |
+| `JWT_SECRET` | Segredo HMAC usado para assinar JWT; exige no mínimo 32 bytes UTF-8. |
+| `API_HOST_PORT` | Porta da API publicada no host pelo Compose; padrão `8080`. |
 
-Keep actual values in an ignored local `.env`, a secret manager, or a Kubernetes Secret. The committed `.env.example` contains placeholders only.
+Mantenha os valores reais em `.env` local (ignorado pelo Git), em um gerenciador de segredos ou em Kubernetes Secret. O arquivo `.env.example` contém apenas placeholders e não deve ser usado sem edição.
 
-## Sales endpoints
+## Endpoints do serviço de vendas
 
-| Method | Route | Description |
+| Método | Rota | Descrição |
 |---|---|---|
-| `PUT` | `/internal/vehicles/{vehicleId}` | Versioned vehicle projection; requires `Authorization: Bearer <MECH_SHOP_INTERNAL_TOKEN>`. |
-| `GET` | `/api/vehicles/available` | Lists available vehicles ordered by price and ID. |
-| `GET` | `/api/vehicles/sold` | Lists sold vehicles ordered by price and ID, including `soldAt`. |
-| `POST` | `/api/vehicles/{vehicleId}/purchases` | Reserves an available vehicle; body: `{"buyerCpf":"<valid-cpf>"}`. |
-| `POST` | `/api/webhooks/payments` | Processes `APPROVED` or `CANCELED`; requires `X-Webhook-Secret`. |
+| `PUT` | `/internal/vehicles/{vehicleId}` | Sincroniza a projeção versionada; exige `Authorization: Bearer <MECH_SHOP_INTERNAL_TOKEN>`. |
+| `GET` | `/api/vehicles/available` | Lista veículos disponíveis em ordem crescente de preço e ID. |
+| `GET` | `/api/vehicles/sold` | Lista veículos vendidos em ordem crescente de preço e ID, incluindo `soldAt`. |
+| `POST` | `/api/vehicles/{vehicleId}/purchases` | Reserva veículo disponível; body: `{"buyerCpf":"<cpf-válido>"}`. |
+| `POST` | `/api/webhooks/payments` | Processa pagamento aprovado ou cancelado; exige `X-Webhook-Secret`. |
 
-A successful purchase returns `201` with the sale ID, vehicle ID, one-time payment code, status and `soldAt`. Public vehicle listings do not expose the buyer CPF or payment code. An approved payment marks the vehicle sold; cancellation releases it. Repeated webhook event IDs are idempotent and conflicting transitions return `409`.
+Uma compra bem-sucedida retorna `201` com o ID da venda e do veículo, código de pagamento, estado e `soldAt`. As listagens não expõem CPF nem código de pagamento. Pagamento aprovado marca o veículo como vendido; cancelamento libera o veículo. Eventos de webhook repetidos são idempotentes e transições incompatíveis retornam `409`.
 
-Example payment event:
+Exemplo de evento de pagamento:
 
 ```json
 {
@@ -71,31 +109,33 @@ Example payment event:
 }
 ```
 
-## Tests and coverage
+## Como testar e verificar a cobertura
 
-Run the full test suite and the mandatory JaCoCo line-coverage check:
+Execute os testes automatizados e a verificação de cobertura com:
 
 ```bash
 ./gradlew clean check
 ```
 
-`check` fails when line coverage is below 80%. Generate/view the HTML report at `build/reports/jacoco/test/html/index.html` with:
+O comando executa os testes e falha se a cobertura de linhas JaCoCo ficar abaixo de 80%. Para gerar o relatório HTML:
 
 ```bash
 ./gradlew jacocoTestReport
 ```
 
-## CI, image publication and Kubernetes
+Abra `build/reports/jacoco/test/html/index.html` no navegador. Os resultados individuais dos testes ficam em `build/reports/tests/test/index.html`.
 
-GitHub Actions runs `clean check` with JDK 21 and the Gradle Wrapper on pull requests targeting `main`. After a push to `main` (including a merge), it runs the same checks and publishes `ghcr.io/vitor-felix/mech-shop-fiap-os` tagged with the commit SHA and `latest`. The Dockerfile does not run tests itself, so publication is gated by the workflow checks.
+## CI, imagem e Kubernetes
 
-Declarative Kubernetes resources are in `k8s/`. They create a dedicated `vehicle-sales` namespace, an internal API Service and Deployment, and a separate PostgreSQL StatefulSet, private Service, persistent volume claim and database ingress policy. The database has no externally published Service. NetworkPolicy enforcement depends on a cluster CNI that supports it.
+O GitHub Actions executa `./gradlew --no-daemon clean check` em Pull Requests para `main`, usando JDK 21 e o Gradle Wrapper. Após push/merge em `main`, outro workflow executa as verificações e publica a imagem `ghcr.io/vitor-felix/mech-shop-fiap-os`, identificada pelo SHA do commit e pela tag `latest`. O Dockerfile não executa testes; a publicação depende da etapa explícita de testes e cobertura no workflow.
 
-No cluster, namespace ownership, registry pull access or deployment credentials were provided for this project. Therefore, the workflow publishes the tested image but intentionally does not claim or perform a live cluster deployment. To deploy to a selected cluster:
+Os manifests declarativos ficam em `k8s/`. Eles criam o namespace `vehicle-sales`, Deployment e Service internos da API, StatefulSet e Service privado do PostgreSQL, volume persistente e NetworkPolicy para restringir o acesso ao banco. A aplicação e o banco têm recursos próprios, sem compartilhar recursos do `vehicle-catalog-api`. A aplicação da NetworkPolicy depende de um CNI que implemente essa funcionalidade.
 
-1. Provide the cluster's storage class and review the PostgreSQL PVC size/resources for that environment.
-2. Create the namespace and a `vehicle-sales-secrets` Secret containing `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `MECH_SHOP_INTERNAL_TOKEN`, `PAYMENT_WEBHOOK_SECRET`, `LOGIN_USERNAME`, `LOGIN_PASSWORD` and `JWT_SECRET`. Keep the source file outside the repository and populate the Secret from the approved secret manager.
-3. If GHCR is private, configure an `imagePullSecret` in this namespace before applying the API Deployment.
-4. Apply the manifests with `kubectl apply -f k8s/namespace.yaml` followed by `kubectl apply -k k8s/`, then set the Deployment image to the published SHA tag. Verify the API readiness probe and database PVC before routing traffic.
+O ambiente não define cluster, classe de armazenamento, permissão para baixar a imagem do GHCR ou credenciais de deploy. Por isso, o workflow publica a imagem, mas não executa nem declara um deploy real. Antes de aplicar os manifests:
 
-Do not point this deployment at the `vehicle-catalog-api` database or reuse its namespace-scoped resources or secrets. Actual CD to a cluster should only be enabled after its target and credential mechanism are agreed.
+1. Revise capacidade e classe de armazenamento do PVC para o cluster escolhido.
+2. Crie no namespace `vehicle-sales` o Secret `vehicle-sales-secrets` com as chaves `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `MECH_SHOP_INTERNAL_TOKEN`, `PAYMENT_WEBHOOK_SECRET`, `LOGIN_USERNAME`, `LOGIN_PASSWORD` e `JWT_SECRET`. Crie-o a partir do gerenciador de segredos aprovado; não versione o arquivo de origem.
+3. Se a imagem GHCR for privada, configure um `imagePullSecret` para o namespace.
+4. Aplique os manifests com `kubectl apply -f k8s/namespace.yaml` e `kubectl apply -k k8s/`; depois configure a imagem do Deployment com a tag SHA publicada e confira a prontidão da API e o PVC do banco.
+
+Não conecte este serviço ao banco do `vehicle-catalog-api` nem reutilize recursos ou credenciais dele. O CD para um cluster deve ser habilitado somente após definir o destino e o mecanismo de credenciais.
