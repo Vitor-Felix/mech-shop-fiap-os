@@ -1,40 +1,16 @@
-# Mech Shop
+# Vehicle Sales API
 
-Sistema de gestão de ordens de serviço para oficina mecânica.
+Serviço de vendas isolado com projeção própria dos veículos. O fluxo legado de oficina permanece temporariamente no projeto, separado da aplicação de vendas.
 
-## 🛠️ Tecnologias
-- **Linguagem:** Kotlin (Java 21)
-- **Framework:** Spring Boot 4
-- **Banco de Dados:** H2 (Dev) / PostgreSQL (Prod)
-- **Containers:** Docker / Docker Compose
+## Tecnologias
 
----
+- Kotlin 2.2.21 e Java 21
+- Spring Boot 4
+- H2 em memória no perfil `dev`; PostgreSQL no perfil `prod`
+- Docker e Docker Compose
 
-## 🚀 Como Executar
+## Execução local
 
-O projeto está configurado com perfis automáticos para facilitar a sua rotina:
+Execute `./gradlew bootRun` para iniciar com H2. Swagger fica em <http://localhost:8080/swagger-ui/index.html>.
 
-### Opção 1: Desenvolvimento Rápido (Via IntelliJ / H2)
-*Ideal para codificar e testar rápido. Usa banco de dados H2 em memória (zera ao reiniciar).*
-
-*   **Pela IDE:** Abra o projeto no IntelliJ e clique no botão **Run** na classe `MechShopApplication.kt`.
-*   **Pelo Terminal:**
-    ```bash
-    ./gradlew bootRun
-
-### Opção 2: Ambiente Completo (Via Docker / Postgres)
-*Ideal para testar a versão final isolada. Persiste os dados na sua máquina física.*
-
-- Subir tudo (API + Banco): `docker compose up -d`
-- Acompanhar logs: `docker compose logs -f`
-- Parar o ambiente (Mantendo os dados): `docker compose down`
-- Parar e APAGAR o banco (Reset total): `docker compose down -v`
-
-## 📖 Documentação da API (Swagger)
-
-Com a aplicação rodando (seja por IntelliJ ou Docker), acesse o link abaixo para testar os endpoints:
-
-🔗 http://localhost:8080/swagger-ui/index.html
-
-> [!NOTE]
-> **Autenticação:** Para acessar as rotas de administrador (`/api/admin/`), gere um token no endpoint `/api/auth/login`, clique no botão **Authorize** (ícone de cadeado no topo da página) e cole o token lá.
+Para executar API e PostgreSQL, use `docker compose up -d`.
