@@ -72,7 +72,6 @@ build/
 !gradle/wrapper/gradle-wrapper.properties
 gradle-app.setting
 gradle-wrapper.jar
-gradle-wrapper.properties
 
 # Gradle specific temporary files
 .gradletasknamecache
