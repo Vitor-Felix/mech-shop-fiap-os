@@ -29,6 +29,8 @@ interface SaleRepository : JpaRepository<SaleEntity, Long> {
     @Query("select sale from SaleEntity sale where sale.paymentCode = :paymentCode")
     fun findByPaymentCodeForUpdate(@Param("paymentCode") paymentCode: String): SaleEntity?
 
+    fun findFirstByVehicleIdOrderByCreatedAtDescIdDesc(vehicleId: Long): SaleEntity?
+
     fun findAllByVehicleIdInAndStatus(vehicleIds: Collection<Long>, status: SaleStatus): List<SaleEntity>
 }
 

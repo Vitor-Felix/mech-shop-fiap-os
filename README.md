@@ -96,8 +96,11 @@ Mantenha os valores reais em `.env` local (ignorado pelo Git), em um gerenciador
 | `GET` | `/api/vehicles/sold` | Lista veículos vendidos em ordem crescente de preço e ID, incluindo `soldAt`. |
 | `POST` | `/api/vehicles/{vehicleId}/purchases` | Reserva veículo disponível; body: `{"buyerCpf":"<cpf-válido>"}`. |
 | `POST` | `/api/webhooks/payments` | Processa pagamento aprovado ou cancelado; exige `X-Webhook-Secret`. |
+| `GET` | `/api/admin/vehicles/{vehicleId}/sale-status` | Consulta o estado atual e o último `paymentCode`; exige JWT administrativo. |
 
 Uma compra bem-sucedida retorna `201` com o ID da venda e do veículo, código de pagamento, estado e `soldAt`. As listagens não expõem CPF nem código de pagamento. Pagamento aprovado marca o veículo como vendido; cancelamento libera o veículo. Eventos de webhook repetidos são idempotentes e transições incompatíveis retornam `409`.
+
+A consulta administrativa retorna `vehicleId`, `availability` (`AVAILABLE`, `RESERVED` ou `SOLD`), `saleStatus` (`PENDING_PAYMENT`, `PAID` ou `CANCELED`, nulo se ainda não houve compra), `paymentCode`, `createdAt` e `soldAt`. Para um veículo sem compras, os campos referentes à venda são nulos. Se houve cancelamento, a resposta mostra a última tentativa, enquanto `availability` mostra a disponibilidade atual. Veículo inexistente retorna `404`. Como `paymentCode` é dado de pagamento, esta rota exige o Bearer JWT administrativo.
 
 Exemplo de evento de pagamento:
 
