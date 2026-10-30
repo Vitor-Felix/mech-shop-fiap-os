@@ -20,8 +20,8 @@ RUN ./gradlew bootJar -x test --no-daemon
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 
-# Copia o JAR gerado no estágio anterior
-COPY --from=build /app/build/libs/*-SNAPSHOT.jar app.jar
+# Copia somente o artefato executável; o JAR -plain não é executável.
+COPY --from=build /app/build/libs/vehicle-sales-api-0.0.1-SNAPSHOT.jar app.jar
 
 # Porta padrão do Spring Boot
 EXPOSE 8080
