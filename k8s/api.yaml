@@ -1,0 +1,116 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: vehicle-sales-api
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: vehicle-sales-api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vehicle-sales-api
+  labels:
+    app.kubernetes.io/name: vehicle-sales-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vehicle-sales-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vehicle-sales-api
+    spec:
+      initContainers:
+        - name: wait-for-database
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -c
+            - until pg_isready -h vehicle-sales-db -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do sleep 2; done
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: vehicle-sales-secrets
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: vehicle-sales-secrets
+                  key: POSTGRES_USER
+      containers:
+        - name: api
+          image: vehicle-sales-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: vehicle-sales-config
+          env:
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: vehicle-sales-secrets
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vehicle-sales-secrets
+                  key: POSTGRES_PASSWORD
+            - name: MECH_SHOP_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vehicle-sales-secrets
+                  key: MECH_SHOP_INTERNAL_TOKEN
+            - name: PAYMENT_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: vehicle-sales-secrets
+                  key: PAYMENT_WEBHOOK_SECRET
+            - name: LOGIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: vehicle-sales-secrets
+                  key: LOGIN_USERNAME
+            - name: LOGIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vehicle-sales-secrets
+                  key: LOGIN_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: vehicle-sales-secrets
+                  key: JWT_SECRET
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi

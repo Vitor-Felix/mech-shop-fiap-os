@@ -37,6 +37,7 @@ class SecurityConfig(
                 req.requestMatchers("/swagger-ui/**").permitAll()
                 req.requestMatchers("/v3/api-docs/**").permitAll()
                 req.requestMatchers("/swagger-ui.html").permitAll()
+                req.requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
 
                 // 3. Libera a rota de erro (Evita que o Spring Security transforme um 404 ou 500 em 403)
                 req.requestMatchers("/error").permitAll()

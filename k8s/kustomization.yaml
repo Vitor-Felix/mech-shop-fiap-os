@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: vehicle-sales
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - database.yaml
+  - database-network-policy.yaml
+  - api.yaml
+
+images:
+  - name: vehicle-sales-api
+    newName: ghcr.io/vitor-felix/mech-shop-fiap-os
+    newTag: latest
