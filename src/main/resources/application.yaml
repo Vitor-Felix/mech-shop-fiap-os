@@ -1,5 +1,7 @@
 # Configuração Padrão (Usada no IntelliJ)
 spring:
+  application:
+    name: vehicle-sales-api
   profiles:
     active: dev
 
@@ -10,7 +12,7 @@ spring:
     activate:
       on-profile: dev
   datasource:
-    url: jdbc:h2:mem:mechshopdb
+    url: jdbc:h2:mem:vehicle_sales_db
     driverClassName: org.h2.Driver
     username: sa
     password:
@@ -30,7 +32,7 @@ spring:
     activate:
       on-profile: prod
   datasource:
-    url: jdbc:postgresql://mech-shop-db:5432/mechshop
+    url: jdbc:postgresql://vehicle-sales-db:5432/mechshop
     driverClassName: org.postgresql.Driver
     username: postgres
     password: secretpassword

@@ -1,7 +1,7 @@
 services:
-  mech-shop-db:
+  vehicle-sales-db:
     image: postgres:16-alpine
-    container_name: mech-shop-postgres
+    container_name: vehicle-sales-postgres
     ports:
       - "5432:5432"
     environment:
@@ -17,17 +17,19 @@ services:
       retries: 5
     restart: unless-stopped
 
-  mech-shop-api:
+  vehicle-sales-api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: mech-shop-app
+    container_name: vehicle-sales-app
     ports:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
+      - MECH_SHOP_INTERNAL_TOKEN=${MECH_SHOP_INTERNAL_TOKEN:-}
+      - PAYMENT_WEBHOOK_SECRET=${PAYMENT_WEBHOOK_SECRET:-}
     depends_on:
-      mech-shop-db:
+      vehicle-sales-db:
         condition: service_healthy
     restart: unless-stopped
 
