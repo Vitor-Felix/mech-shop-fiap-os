@@ -1,5 +1,7 @@
 package com.vitfelix.mech_shop.infrastructure.exception
 
+import com.vitfelix.mech_shop.application.service.SaleConflictException
+import com.vitfelix.mech_shop.application.service.SaleNotFoundException
 import jakarta.validation.ConstraintViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -38,4 +40,16 @@ class GlobalExceptionHandler {
             )
         )
     }
+
+    @ExceptionHandler(IllegalArgumentException::class)
+    fun handleInvalidRequest(ex: IllegalArgumentException): ResponseEntity<Map<String, String>> =
+        ResponseEntity.badRequest().body(mapOf("error" to (ex.message ?: "Invalid request")))
+
+    @ExceptionHandler(SaleNotFoundException::class)
+    fun handleSaleNotFound(ex: SaleNotFoundException): ResponseEntity<Map<String, String>> =
+        ResponseEntity.status(HttpStatus.NOT_FOUND).body(mapOf("error" to (ex.message ?: "Not found")))
+
+    @ExceptionHandler(SaleConflictException::class)
+    fun handleSaleConflict(ex: SaleConflictException): ResponseEntity<Map<String, String>> =
+        ResponseEntity.status(HttpStatus.CONFLICT).body(mapOf("error" to (ex.message ?: "Conflict")))
 }

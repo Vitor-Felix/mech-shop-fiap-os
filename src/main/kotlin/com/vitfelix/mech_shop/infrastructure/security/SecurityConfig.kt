@@ -14,9 +14,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 class SecurityConfig(
     private val securityFilter: SecurityFilter,
-    @Value("\${MECH_SHOP_INTERNAL_TOKEN:}") internalToken: String
+    @Value("\${MECH_SHOP_INTERNAL_TOKEN:}") internalToken: String,
+    @Value("\${PAYMENT_WEBHOOK_SECRET:}") webhookSecret: String
 ) {
     private val internalTokenFilter = InternalTokenFilter(internalToken)
+    private val paymentWebhookSecretFilter = PaymentWebhookSecretFilter(webhookSecret)
 
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
@@ -27,6 +29,9 @@ class SecurityConfig(
                 // 1. Rotas Públicas do Sistema
                 req.requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 req.requestMatchers("/api/work-orders/**").permitAll()
+                req.requestMatchers(HttpMethod.GET, "/api/vehicles/available", "/api/vehicles/sold").permitAll()
+                req.requestMatchers(HttpMethod.POST, "/api/vehicles/*/purchases").permitAll()
+                req.requestMatchers(HttpMethod.POST, "/api/webhooks/payments").permitAll()
 
                 // 2. Rotas Públicas do Swagger / OpenAPI
                 req.requestMatchers("/swagger-ui/**").permitAll()
@@ -43,6 +48,7 @@ class SecurityConfig(
                 // Qualquer outra rota que sobrar, bloqueia
                 req.anyRequest().authenticated()
             }
+            .addFilterBefore(paymentWebhookSecretFilter, UsernamePasswordAuthenticationFilter::class.java)
             .addFilterBefore(internalTokenFilter, UsernamePasswordAuthenticationFilter::class.java)
             .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter::class.java)
             .build()
