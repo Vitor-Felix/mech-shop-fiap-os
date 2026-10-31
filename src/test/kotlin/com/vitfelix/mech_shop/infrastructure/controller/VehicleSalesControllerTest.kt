@@ -15,7 +15,9 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
+import org.springframework.security.test.context.support.WithMockUser
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -104,6 +106,50 @@ class VehicleSalesControllerTest {
 
         mockMvc.perform(purchaseRequest(42L))
             .andExpect(status().isConflict)
+    }
+
+    @Test
+    @WithMockUser
+    fun `admin can inspect vehicle availability and latest sale status`() {
+        vehicle(42L, "125000.00")
+
+        mockMvc.perform(get("/api/admin/vehicles/42/sale-status"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.vehicleId").value(42))
+            .andExpect(jsonPath("$.availability").value("AVAILABLE"))
+            .andExpect(jsonPath("$.saleStatus").value(org.hamcrest.Matchers.nullValue()))
+            .andExpect(jsonPath("$.paymentCode").value(org.hamcrest.Matchers.nullValue()))
+
+        val paymentCode = createPurchase()
+        mockMvc.perform(get("/api/admin/vehicles/42/sale-status"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.availability").value("RESERVED"))
+            .andExpect(jsonPath("$.saleStatus").value("PENDING_PAYMENT"))
+            .andExpect(jsonPath("$.paymentCode").value(paymentCode))
+            .andExpect(jsonPath("$.createdAt").isNotEmpty)
+            .andExpect(jsonPath("$.soldAt").value(org.hamcrest.Matchers.nullValue()))
+
+        mockMvc.perform(
+            webhookRequest("""{"eventId":"evt-status-approved","paymentCode":"$paymentCode","status":"APPROVED"}""")
+        ).andExpect(status().isNoContent)
+
+        mockMvc.perform(get("/api/admin/vehicles/42/sale-status"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.availability").value("SOLD"))
+            .andExpect(jsonPath("$.saleStatus").value("PAID"))
+            .andExpect(jsonPath("$.paymentCode").value(paymentCode))
+            .andExpect(jsonPath("$.soldAt").isNotEmpty)
+    }
+
+    @Test
+    fun `sale status endpoint requires authentication and returns not found for unknown vehicle`() {
+        vehicle(42L, "125000.00")
+
+        mockMvc.perform(get("/api/admin/vehicles/42/sale-status"))
+            .andExpect(status().isForbidden)
+
+        mockMvc.perform(get("/api/admin/vehicles/404/sale-status").with(user("admin")))
+            .andExpect(status().isNotFound)
     }
 
     @Test
@@ -206,6 +252,7 @@ class VehicleSalesControllerTest {
     }
 
     @Test
+    @WithMockUser
     fun `canceled payment releases the vehicle and permits a later purchase`() {
         vehicle(42L, "125000.00")
         val paymentCode = createPurchase()
@@ -217,6 +264,11 @@ class VehicleSalesControllerTest {
         assertEquals(SaleStatus.CANCELED, saleRepository.findAll().single().status)
         assertEquals(VehicleAvailability.AVAILABLE, vehicleRepository.findById(42L).orElseThrow().availability)
         assertEquals(1, paymentEventRepository.count())
+        mockMvc.perform(get("/api/admin/vehicles/42/sale-status"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.availability").value("AVAILABLE"))
+            .andExpect(jsonPath("$.saleStatus").value("CANCELED"))
+            .andExpect(jsonPath("$.paymentCode").value(paymentCode))
         mockMvc.perform(purchaseRequest(42L)).andExpect(status().isCreated)
     }
 

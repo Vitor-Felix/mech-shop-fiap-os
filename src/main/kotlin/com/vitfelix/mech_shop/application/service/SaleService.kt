@@ -5,6 +5,7 @@ import com.vitfelix.mech_shop.application.dto.request.PurchaseRequest
 import com.vitfelix.mech_shop.application.dto.response.AvailableVehicleResponse
 import com.vitfelix.mech_shop.application.dto.response.PurchaseResponse
 import com.vitfelix.mech_shop.application.dto.response.SoldVehicleResponse
+import com.vitfelix.mech_shop.application.dto.response.VehicleSaleStatusResponse
 import com.vitfelix.mech_shop.domain.enums.PaymentEventStatus
 import com.vitfelix.mech_shop.domain.enums.SaleStatus
 import com.vitfelix.mech_shop.domain.enums.VehicleAvailability
@@ -30,6 +31,21 @@ class SaleService(
     private val saleRepository: SaleRepository,
     private val paymentEventRepository: ProcessedPaymentEventRepository
 ) {
+    fun getVehicleSaleStatus(vehicleId: Long): VehicleSaleStatusResponse {
+        val vehicle = vehicleRepository.findById(vehicleId)
+            .orElseThrow { SaleNotFoundException("Vehicle not found") }
+        val latestSale = saleRepository.findFirstByVehicleIdOrderByCreatedAtDescIdDesc(vehicleId)
+
+        return VehicleSaleStatusResponse(
+            vehicleId = vehicle.vehicleId,
+            availability = vehicle.availability,
+            saleStatus = latestSale?.status,
+            paymentCode = latestSale?.paymentCode,
+            createdAt = latestSale?.createdAt,
+            soldAt = latestSale?.soldAt
+        )
+    }
+
     fun getAvailableVehicles() =
         vehicleRepository.findAllByAvailabilityOrderByPriceAscVehicleIdAsc(VehicleAvailability.AVAILABLE)
             .map {
