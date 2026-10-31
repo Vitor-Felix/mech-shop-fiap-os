@@ -130,7 +130,17 @@ Abra `build/reports/jacoco/test/html/index.html` no navegador. Os resultados ind
 
 ## CI, imagem e Kubernetes
 
-O GitHub Actions executa `./gradlew --no-daemon clean check` em Pull Requests para `main`, usando JDK 21 e o Gradle Wrapper. Após push/merge em `main`, outro workflow executa as verificações e publica a imagem `ghcr.io/vitor-felix/mech-shop-fiap-os`, identificada pelo SHA do commit e pela tag `latest`. O Dockerfile não executa testes; a publicação depende da etapa explícita de testes e cobertura no workflow.
+O fluxo de branches é `feature/*` → `develop` → `main`. Abra PRs de funcionalidades para `develop`; PRs para `main` devem ter como origem a branch `develop` deste mesmo repositório. O workflow `CI` executa em PRs e pushes para `develop` e `main`, usando JDK 21 e o Gradle Wrapper. Seus checks são:
+
+| Check | Validação |
+|---|---|
+| `CI / verify` | Executa `./gradlew --no-daemon clean check bootJar` e `docker build`; valida testes, cobertura, build Java e imagem. |
+| `Test Coverage / coverage` | Executa testes e verificação JaCoCo independente, além de publicar o relatório como artefato do workflow. |
+| `CI / enforce-main-source` | Falha em PRs para `main` que não venham de `develop` no mesmo repositório. |
+
+JaCoCo exige cobertura mínima de 80% das linhas; a verificação falha se ficar abaixo desse limite. Configure os três checks (`CI / verify`, `Test Coverage / coverage` e `CI / enforce-main-source`) como obrigatórios nas regras de proteção/ruleset do GitHub para `develop` e `main`, de acordo com o fluxo de PRs.
+
+Após push/merge em `main`, o workflow de publicação executa os testes e cobertura e publica a imagem `ghcr.io/vitor-felix/mech-shop-fiap-os`, identificada pelo SHA do commit e pela tag `latest`. Publicar a imagem no GHCR **não significa que a aplicação foi implantada ou esteja em execução**. O Dockerfile não executa testes; a publicação depende da etapa explícita de testes e cobertura no workflow.
 
 Os manifests declarativos ficam em `k8s/`. Eles criam o namespace `vehicle-sales`, Deployment e Service internos da API, StatefulSet e Service privado do PostgreSQL, volume persistente e NetworkPolicy para restringir o acesso ao banco. A aplicação e o banco têm recursos próprios, sem compartilhar recursos do `vehicle-catalog-api`. A aplicação da NetworkPolicy depende de um CNI que implemente essa funcionalidade.
 
